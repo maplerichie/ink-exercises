@@ -2,9 +2,9 @@
 
 use drink::{
     minimal::MinimalSandbox,
-    Sandbox,
     sandbox_api::{balance_api::BalanceAPI, prelude::SystemAPI},
-    session::{NO_ARGS, NO_ENDOWMENT, Session},
+    session::{Session, NO_ARGS, NO_ENDOWMENT},
+    Sandbox,
 };
 
 use utils::deploy_contracts;
@@ -119,16 +119,18 @@ fn no_vote_voting(mut session: Session) -> TestResult {
 fn expired_subscribers_cannot_vote(mut session: Session) -> TestResult {
     let (enroll_address, _) = deploy_contracts(&mut session)?;
 
-    session.sandbox().mint_into(&BOB.into(), 1_000_000_000_000).unwrap();
+    session
+        .sandbox()
+        .mint_into(&BOB.into(), 1_000_000_000_000)
+        .unwrap();
 
     session.set_actor(BOB.into());
-    session
-        .call_with_address::<_, ()>(
-            enroll_address,
-            "subscribe",
-            NO_ARGS,
-            Some(1), // this will be enough for 10 blocks
-        )??;
+    session.call_with_address::<_, ()>(
+        enroll_address,
+        "subscribe",
+        NO_ARGS,
+        Some(1), // this will be enough for 10 blocks
+    )??;
 
     session.sandbox().build_blocks(15);
 
@@ -138,27 +140,90 @@ fn expired_subscribers_cannot_vote(mut session: Session) -> TestResult {
         .expect("start_voting failed");
 
     session.set_actor(BOB.into());
-    let error = session.call_and_expect_error::<_, VotingError>("vote_for", NO_ARGS, NO_ENDOWMENT)?;
+    let error =
+        session.call_and_expect_error::<_, VotingError>("vote_for", NO_ARGS, NO_ENDOWMENT)?;
     assert_eq!(error, VotingError::NotAuthorized);
 
     Ok(())
 }
 
-// #[drink::test]
-// fn cannot_vote_two_times(mut session: Session) -> TestResult {
-//     todo!("Implement test")
-// }
-//
-// #[drink::test]
-// fn voting_works(mut session: Session) -> TestResult {
-//     todo!("Implement test")
-// }
+#[drink::test]
+fn cannot_vote_two_times(mut session: Session) -> TestResult {
+    let (enroll_address, _) = deploy_contracts(&mut session)?;
+
+    session
+        .sandbox()
+        .mint_into(&BOB.into(), 1_000_000_000_000)
+        .unwrap();
+
+    session.set_actor(BOB.into());
+    session.call_with_address::<_, ()>(
+        enroll_address,
+        "subscribe",
+        NO_ARGS,
+        Some(1), // this will be enough for 10 blocks
+    )??;
+
+    session.set_actor(MinimalSandbox::default_actor());
+    session
+        .call::<_, Result<(), VotingError>>("start_voting", &["10"], NO_ENDOWMENT)??
+        .expect("start_voting failed");
+
+    session.set_actor(BOB.into());
+    session
+        .call::<_, Result<(), VotingError>>("vote_for", NO_ARGS, NO_ENDOWMENT)??
+        .expect("start_voting failed");
+
+    let error =
+        session.call_and_expect_error::<_, VotingError>("vote_for", NO_ARGS, NO_ENDOWMENT)?;
+    assert_eq!(error, VotingError::AlreadyVoted);
+
+    Ok(())
+}
+
+#[drink::test]
+fn voting_works(mut session: Session) -> TestResult {
+    let (enroll_address, _) = deploy_contracts(&mut session)?;
+
+    session
+        .sandbox()
+        .mint_into(&BOB.into(), 1_000_000_000_000)
+        .unwrap();
+
+    session.set_actor(BOB.into());
+    session.call_with_address::<_, ()>(
+        enroll_address,
+        "subscribe",
+        NO_ARGS,
+        Some(1), // this will be enough for 10 blocks
+    )??;
+
+    session.set_actor(MinimalSandbox::default_actor());
+    session
+        .call::<_, Result<(), VotingError>>("start_voting", &["10"], NO_ENDOWMENT)??
+        .expect("start_voting failed");
+
+    session.set_actor(BOB.into());
+    session
+        .call::<_, Result<(), VotingError>>("vote_for", NO_ARGS, NO_ENDOWMENT)??
+        .expect("vote_for failed");
+
+    session.sandbox().build_blocks(15);
+
+    session.set_actor(MinimalSandbox::default_actor());
+    let result = session
+        .call::<_, Result<VotingResult, VotingError>>("end_voting", NO_ARGS, NO_ENDOWMENT)??
+        .unwrap();
+    assert_eq!(result, VotingResult::For);
+
+    Ok(())
+}
 
 mod utils {
     use drink::{
-        AccountId32,
         minimal::MinimalSandbox,
-        session::{NO_ARGS, NO_ENDOWMENT, NO_SALT, Session},
+        session::{Session, NO_ARGS, NO_ENDOWMENT, NO_SALT},
+        AccountId32,
     };
 
     use crate::{BundleProvider, TestResult};

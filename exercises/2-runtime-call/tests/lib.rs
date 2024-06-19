@@ -1,9 +1,7 @@
 #![cfg(test)]
 
-use drink::{
-    session::{NO_ARGS, Session},
-};
 use drink::sandbox_api::balance_api::BalanceAPI;
+use drink::session::{Session, NO_ARGS};
 
 use sandbox_with_staking::SandboxWithStaking;
 
@@ -61,7 +59,10 @@ fn cumulates_stake_from_many_users_and_then_stakes(mut session: Session) -> Test
     session.call::<_, ()>("stake", NO_ARGS, Some(50))??;
     assert_eq!(stake_of(&mut session, contract.clone()), None);
 
-    session.sandbox().mint_into(&BOB.into(), 1_000_000_000_000).unwrap();
+    session
+        .sandbox()
+        .mint_into(&BOB.into(), 1_000_000_000_000)
+        .unwrap();
     session.set_actor(BOB.into());
     session.call::<_, ()>("stake", NO_ARGS, Some(50))??;
 
@@ -73,7 +74,8 @@ fn cumulates_stake_from_many_users_and_then_stakes(mut session: Session) -> Test
 fn stakes_more_if_new_funds_are_deposited(mut session: Session) -> TestResult {
     let contract = deploy_contract(&mut session)?;
 
-    session.call::<_, ()>("stake", NO_ARGS, Some(500))??;
+    let res = session.call::<_, ()>("stake", NO_ARGS, Some(500))??;
+    println!("Result: {:?}", res);
     assert_eq!(stake_of(&mut session, contract.clone()), Some(500));
 
     session.call::<_, ()>("stake", NO_ARGS, Some(500))??;
@@ -84,8 +86,8 @@ fn stakes_more_if_new_funds_are_deposited(mut session: Session) -> TestResult {
 
 mod utils {
     use drink::{
-        AccountId32,
-        Sandbox, session::{NO_ARGS, NO_ENDOWMENT, NO_SALT, Session},
+        session::{Session, NO_ARGS, NO_ENDOWMENT, NO_SALT},
+        AccountId32, Sandbox,
     };
 
     use sandbox_with_staking::{RuntimeWithStaking, SandboxWithStaking};
@@ -102,7 +104,10 @@ mod utils {
         )?)
     }
 
-    pub fn stake_of(session: &mut Session<SandboxWithStaking>, account: AccountId32) -> Option<u128> {
+    pub fn stake_of(
+        session: &mut Session<SandboxWithStaking>,
+        account: AccountId32,
+    ) -> Option<u128> {
         session
             .sandbox()
             .execute_with(|| pallet_fake_staking::Pallet::<RuntimeWithStaking>::stake_of(account))

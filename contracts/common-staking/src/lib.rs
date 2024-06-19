@@ -26,7 +26,7 @@ mod common_staking {
         }
 
         /// Deposits the transferred balance into the contract.
-        /// 
+        ///
         /// 1. If the accumulated balance is now greater than or equal to `THRESHOLD`, then the
         /// contract will call the `FakeStaking` pallet to stake the accumulated balance.
         /// 2. If the accumulated balance is greater than or equal to `THRESHOLD` and the contract
@@ -36,7 +36,21 @@ mod common_staking {
         /// accumulate the transferred balance.
         #[ink(message, payable, selector = 1)]
         pub fn stake(&mut self) {
-            // todo: implement
+            let balance = self.env().balance();
+            if balance >= THRESHOLD {
+                if !self.already_staking {
+                    let _ = self.env().call_runtime(&RuntimeCall::FakeStaking(
+                        FakeStakingCall::Stake { stake: balance },
+                    ));
+                    self.already_staking = true;
+                } else {
+                    let _ = self.env().call_runtime(&RuntimeCall::FakeStaking(
+                        FakeStakingCall::StakeMore {
+                            more: self.env().transferred_value(),
+                        },
+                    ));
+                }
+            }
         }
     }
 
